@@ -1,12 +1,28 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
+import _ from 'lodash';
 
 const colors = {
   used: "lightgreen",
   selected: "deepskyblue",
   wrong: "lightcoral"
 };
+
+const randomSum = (arr, maxSum) => {
+  const sets = [[]], sums = [];
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = 0, len = sets.length; j < len; j++) {
+      const candidateSet = sets[j].concat(arr[i]);
+      const candidateSum = _.sum(candidateSet);
+      if (candidateSum <= maxSum) {
+        sets.push(candidateSet);
+        sums.push(candidateSum);
+      }
+    }
+  }
+  return _.sample(sums);
+}
 
 class Number extends React.PureComponent {
   bgColor() {
@@ -46,34 +62,49 @@ class Game extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      stars: Math.floor(Math.random() * 9) + 1,
       selectedNumbers: [],
       usedNumbers: []
     };
   }
 
-  handleClick(num) {
-    this.setState(prevState => {
-      let { stars, selectedNumbers, usedNumbers } = prevState;
-      selectedNumbers = [...selectedNumbers, num];
-      const sum = selectedNumbers.reduce((acc, cv) => (acc += cv), 0);
+  numbers = _.range(1, 10);
+  stars = _.range(randomSum(this.numbers, 9));
 
-      if (sum === stars) {
+  handleClick(num) {
+
+    this.setState(prevState => {
+      let { selectedNumbers, usedNumbers } = prevState;
+
+      if (selectedNumbers.indexOf(num) >= 0) {
+        selectedNumbers = selectedNumbers.filter(v => v !== num);
+      } else {
+        selectedNumbers = [...selectedNumbers, num];
+      }
+      const sum = _.sum(selectedNumbers);
+      this.selectionIsWrong = sum > this.stars.length;
+      this.gameIsDone = usedNumbers.length === this.numbers.length;
+      if (sum === this.stars.length) {
         usedNumbers = [...usedNumbers, ...selectedNumbers];
         selectedNumbers = [];
-        stars = Math.floor(Math.random() * 9) + 1;
+        this.stars = _.range(
+          randomSum(_.difference(this.numbers, usedNumbers), 9)
+        );;
       }
 
-      return { selectedNumbers, usedNumbers, stars };
+      return { selectedNumbers, usedNumbers };
     });
   }
 
+  resetGame() {
+    this.setState({
+      selectedNumbers: [],
+      usedNumbers: []
+    })
+    this.numbers = _.range(1, 10);
+    this.stars = _.range(randomSum(this.numbers, 9));
+  }
+
   render() {
-    const { usedNumbers, selectedNumbers, stars } = this.state;
-    const selectedSum = selectedNumbers.reduce((acc, cv) => (acc += cv), 0);
-    const selectionIsWrong = selectedSum > stars;
-    const arr = [...Array(9).keys()];
-    const starsArray = [...Array(stars).keys()];
     return (
       <div className="game">
         <div className="help">
@@ -81,24 +112,22 @@ class Game extends React.Component {
         </div>
         <div className="body">
           <div className="stars">
-            {starsArray.map(v => {
+            {this.stars.map(v => {
               return <div key={v} className="star" />;
             })}
           </div>
           <div className="play-numbers">
-            {arr.map(v => {
-              const isSelected = selectedNumbers.find(i => i === v + 1)
-                ? true
-                : false;
-              const isUsed = usedNumbers.find(i => i === v + 1) ? true : false;
+            {this.numbers.map(v => {
+              const isSelected = this.state.selectedNumbers.indexOf(v) >= 0;
+              const isUsed = this.state.usedNumbers.indexOf(v) >= 0;
               return (
                 <Number
                   used={isUsed}
                   selected={isSelected}
                   key={v}
                   onClick={i => this.handleClick(i)}
-                  wrong={selectionIsWrong}
-                  num={v + 1}
+                  wrong={this.selectionIsWrong}
+                  num={v}
                 />
               );
             })}
